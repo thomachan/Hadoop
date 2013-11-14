@@ -2,18 +2,12 @@ package mapreduce.hi;
 
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
-import java.util.Iterator;
 import java.util.StringTokenizer;
-import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -96,20 +90,28 @@ public class HIReduce {
 			ugi.doAs(new PrivilegedExceptionAction<Void>() {
 
 				public Void run() throws Exception {
-
+					
+					
+					
 					Configuration conf = new Configuration();
 					conf.set("mapred.job.tracker", "192.168.1.149:9001");
 					conf.set("fs.default.name", "hdfs://192.168.1.149:9000");
+					
 					conf.set("hadoop.job.ugi", "root");
 
 					String[] otherArgs = new GenericOptionsParser(conf, a)
 							.getRemainingArgs();
-					if (otherArgs.length != 2) {
+					if (otherArgs.length != 3) {
 						System.err
-								.println("Usage: CommentWordCount <in> <out>");
+								.println("Usage: Comment <in path> <out path> <temp file for merging in>");
 						System.exit(2);
 					}
+					//delete temporary location if already exists
+					delete(otherArgs[2], conf);
+					//delete output if exists
+					delete(otherArgs[1], conf);
 					
+					copyMerge(otherArgs[0], otherArgs[2], conf);
 
 					Job job = new Job(conf, "HI_ARCHIVE");
 					job.setJarByClass(HIReduce.class);
@@ -119,11 +121,30 @@ public class HIReduce {
 					job.setOutputKeyClass(HIKey.class);
 					job.setOutputValueClass(HITuple.class);
 					
-					FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+					
+					
+					//CombineInputFormat.addInputPath(job, new Path(otherArgs[0]));
+					FileInputFormat.addInputPath(job, new Path(otherArgs[2]));
 					FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
 					System.exit(job.waitForCompletion(true) ? 0 : 1);
 
 					return null;
+				}
+
+				private void delete(String arg, Configuration configuration)
+						throws IOException {
+					 final Path path = new Path(arg);
+					FileSystem fs = FileSystem.get(configuration);
+					if(fs.exists(path)){
+				       
+				        fs.delete(path, true);
+					}
+			        fs.close();
+				}
+				private void copyMerge(String sourceDir, String destFile,Configuration conf) throws IOException{
+					FileSystem fileSystem = FileSystem.get(conf);
+					FileUtil.copyMerge(fileSystem, new Path(sourceDir), fileSystem, new Path(destFile),true, conf, null);
+
 				}
 			});
 

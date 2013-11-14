@@ -237,14 +237,14 @@ public class HDFSClient {
 		
 			//client.addFile(args[0], args[1]);
 			//client.readFile(args[0]);
-			client.listContent("hiarchive/output/114_20");
+			client.listContent("historical/113");
 			//System.out.println(client.ifExists(new Path(args[0])));
 			//client.mkdir(args[0]);
 			//client.getHostnames();
 			//client.addObject(new Text("Twitter","msg"), "test", "text02");
 			//client.readObject("test/text01");
 		//client.copyMerge("historical/113", "hiarchive/113/1");
-		//client.delete("hiarchive/113");
+		//client.delete("hiarchive");
 
 
 		System.out.println("Done!");
