@@ -4,19 +4,26 @@ import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 import java.util.StringTokenizer;
 
+import mapreduce.hi.seq.SeqMapReduce;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.GenericOptionsParser;
+
+import com.radiant.cisms.hdfs.seq.HInfoWritable;
 
 public class HIReduce {
 
@@ -101,6 +108,50 @@ public class HIReduce {
 
 					String[] otherArgs = new GenericOptionsParser(conf, a)
 							.getRemainingArgs();
+					if(otherArgs.length >2 )
+						runFlatfileJob(conf, otherArgs);
+					else
+						runSeqfileJob(conf, otherArgs);
+
+					return null;
+				}
+				private void runSeqfileJob(Configuration conf,
+						String[] otherArgs) throws IOException,
+						InterruptedException, ClassNotFoundException {
+					if (otherArgs.length != 2) {
+						System.err
+								.println("Usage: Comment <in path> <out path>");
+						System.exit(2);
+					}
+					//delete output if exists
+					delete(otherArgs[1], conf);
+					
+					Job job = new Job(conf);
+					job.setJarByClass(HIReduce.class);
+					job.setMapperClass(SeqMapReduce.Map.class);
+					job.setCombinerClass(SeqMapReduce.Reduce.class);
+					job.setReducerClass(SeqMapReduce.Reduce.class);
+					
+					job.setOutputKeyClass(HIKey.class);
+					job.setOutputValueClass(HITuple.class);
+				    job.setInputFormatClass(
+				        SequenceFileInputFormat.class); //<co id="ch03_comment_seqfile_mr1"/>
+				    job.setOutputFormatClass(SequenceFileOutputFormat.class);  //<co id="ch03_comment_seqfile_mr2"/>
+				    SequenceFileOutputFormat.setCompressOutput(job, false);  //<co id="ch03_comment_seqfile_mr3"/>
+				  
+				    SequenceFileOutputFormat.setOutputCompressorClass(job,  //<co id="ch03_comment_seqfile_mr5"/>
+				        DefaultCodec.class);
+
+				    FileInputFormat.setInputPaths(job, new Path(otherArgs[0]));
+				    Path outPath = new Path(otherArgs[1]);
+				    FileOutputFormat.setOutputPath(job, outPath);
+				    outPath.getFileSystem(conf).delete(outPath, true);
+
+				    job.waitForCompletion(true);
+				}
+				private void runFlatfileJob(Configuration conf,
+						String[] otherArgs) throws IOException,
+						InterruptedException, ClassNotFoundException {
 					if (otherArgs.length != 3) {
 						System.err
 								.println("Usage: Comment <in path> <out path> <temp file for merging in>");
@@ -127,8 +178,6 @@ public class HIReduce {
 					FileInputFormat.addInputPath(job, new Path(otherArgs[2]));
 					FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
 					System.exit(job.waitForCompletion(true) ? 0 : 1);
-
-					return null;
 				}
 
 				private void delete(String arg, Configuration configuration)

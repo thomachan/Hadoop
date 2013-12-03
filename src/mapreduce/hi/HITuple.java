@@ -14,7 +14,7 @@ public class HITuple implements Writable {
 	private long count = 0;
 	private Text oid;
 	private Text interval;
-	private double avg;
+	private Double avg;
 	//private final static SimpleDateFormat frmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
 	public HITuple(){
 		oid = new Text();
@@ -68,16 +68,12 @@ public class HITuple implements Writable {
 		this.count = count;
 	}
 
-	
-	
-	public double getAvg() {
+	public Double getAvg() {
 		return avg;
 	}
-
-	public void setAvg(double avg) {
+	public void setAvg(Double avg) {
 		this.avg = avg;
 	}
-
 	public void readFields(DataInput in) throws IOException {
 		// Read the data out in the order it is written,
 		// creating new Date objects from the UNIX timestamp
@@ -87,6 +83,7 @@ public class HITuple implements Writable {
 		time = in.readLong();
 		interval.readFields(in);
 		count = in.readLong();
+		//avg = in.readDouble();
 	}
 
 	public void write(DataOutput out) throws IOException {
@@ -98,9 +95,10 @@ public class HITuple implements Writable {
 		out.writeLong(time);
 		interval.write(out);
 		out.writeLong(count);
+		//out.writeDouble(avg);
 	}
 
 	public String toString() {
-		return objId +"<=>" + avg + "<=>" + count + "<=>" + interval;
+		return objId +"<=>" + (avg != null? avg: value) + "<=>" + count + "<=>" + interval;
 	}
 }

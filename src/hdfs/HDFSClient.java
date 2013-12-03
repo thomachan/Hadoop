@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.security.PrivilegedExceptionAction;
 
 import org.apache.hadoop.conf.Configuration;
@@ -23,7 +24,12 @@ import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.DistributedFileSystem;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
+import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.compress.DefaultCodec;
 import org.apache.hadoop.security.UserGroupInformation;
+
+import com.radiant.cisms.hdfs.seq.HInfoWritable;
 
 public class HDFSClient {
 	static Configuration conf;
@@ -178,6 +184,16 @@ public class HDFSClient {
 		boolean isExists = hdfs.exists(source);
 		return isExists;
 	}
+	public void append(Path source,String bytes) throws IOException {
+
+		FileSystem hdfs = FileSystem.get(conf);
+		if(hdfs.exists(source)){
+			FSDataOutputStream fsout = hdfs.append(source);
+			fsout.writeChars(bytes);
+			fsout.close();
+			System.out.println("written...");
+		}
+	}
 	public void listContent(String path){
 		 try{
              FileSystem fs = FileSystem.get(conf);
@@ -216,6 +232,7 @@ public class HDFSClient {
                 	conf = new Configuration();
             		conf.set("fs.default.name","hdfs://192.168.1.149:9000");
             		conf.set("hadoop.job.ugi", "root");
+            	//	conf.set("dfs.support.append", "true");
 //            		conf.addResource(new Path("/usr/local/hadoop-1.0.3/conf/core-site.xml"));
 //            		conf.addResource(new Path("/usr/local/hadoop-1.0.3/conf/hdfs-site.xml"));
 //            		conf.addResource(new Path("/usr/local/hadoop-1.0.3/conf/mapred-site.xml"));
@@ -230,24 +247,109 @@ public class HDFSClient {
 
 	}
 
+	public void write(HInfoWritable info, String path) throws IOException {
+		FileSystem fs = FileSystem.get(conf);
+
+		SequenceFile.Writer writer = SequenceFile.createWriter(fs, conf,
+				new Path(path), Text.class, HInfoWritable.class,
+				SequenceFile.CompressionType.NONE, new DefaultCodec());
+		try {
+			
+			for(int i=0;i<10;i++){
+				Text key = new Text();
+				key.set(info.toString()+i);
+				writer.append(key, info);
+			}
+		} finally {
+			writer.close();
+		}
+	}
+	 public  void read(String string) throws IOException {
+		    FileSystem fs = FileSystem.get(conf);
+
+		    SequenceFile.Reader reader =  new SequenceFile.Reader(fs, new Path(string), conf);
+
+		    try {
+		      System.out.println(
+		          "Is block compressed = " + reader.isBlockCompressed());
+
+		      Text key = new Text();
+		      HInfoWritable value = new HInfoWritable();
+
+		      while (reader.next(key, value)) { 
+		        System.out.println(key + "," + value);
+		      }
+		    } finally {
+		      reader.close();
+		    }
+		  }
+
 	protected static void init() throws IOException, ClassNotFoundException {
-		String []args = {"D:/1.txt","hiarchive/4"};
+		String []args = {"D:/text.txt","append/1"};
 		//String []args = {"hiarchive/output/103"};
 		HDFSClient client = new HDFSClient();
-		
+			
+			//client.append(new Path("append/1/text.txt"), "sample appended");
 			//client.addFile(args[0], args[1]);
 			//client.readFile(args[0]);
-			client.listContent("historical/113");
+			client.listContent("temp");
+			//client.read("seq/historical/113");
+			//client.write(new HInfoWritable("113","redhat:1.6",1384433196012l,5), "seq/historical/113");
 			//System.out.println(client.ifExists(new Path(args[0])));
 			//client.mkdir(args[0]);
 			//client.getHostnames();
 			//client.addObject(new Text("Twitter","msg"), "test", "text02");
 			//client.readObject("test/text01");
-		//client.copyMerge("historical/113", "hiarchive/113/1");
-		//client.delete("hiarchive");
+		//client.copyMerge("historical", "temp");
+		//client.delete("infodata");
+		//client.writeString("sdfkdshf", "sample/input");
+		//client.readString("sample/input");
 
 
 		System.out.println("Done!");
 		
+	}
+	public void writeText(String content, String file) throws IOException {
+		Text t= new Text();
+		FileSystem fileSystem = FileSystem.get(conf);
+		// Check if the file already exists
+		Path path = new Path(file);
+		FSDataOutputStream out = null;
+		
+			  if (fileSystem.exists(path)) {
+					System.out.println("File " + file + " already exists");
+					FileStatus fileS  = fileSystem.getFileStatus(path);
+					fileS.write(out);
+				}else{
+					System.out.println("File " + file + " created ");
+					out = fileSystem.create(path);
+				}
+		   // wrap the outputstream with a writer
+		   PrintWriter writer = new PrintWriter(out);
+		   writer.print(content);
+		   writer.close();
+		out.close();
+		fileSystem.close();
+	}
+	public void writeString(String content, String file) throws IOException {
+		Text t= new Text(content);
+		FileSystem fileSystem = FileSystem.get(conf);
+		// Check if the file already exists
+		Path path = new Path(file);
+		FSDataOutputStream out = fileSystem.create(path);
+		t.write(out);
+		out.close();
+		fileSystem.close();
+	}
+	public void readString(String file) throws IOException {
+		FileSystem fileSystem = FileSystem.get(conf);
+		// Check if the file already exists
+		Path path = new Path(file);
+		byte[] b = new byte[1024];
+		FSDataInputStream in = fileSystem.open(path);
+		int length = in.read(b);
+		System.out.println(new String(b,0,length));
+		in.close();
+		fileSystem.close();
 	}
 }
