@@ -3,10 +3,12 @@ package hdfs;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,6 +16,7 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.security.PrivilegedExceptionAction;
+import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -69,6 +72,54 @@ public class HDFSClient {
 
 		// Close all the file descripters
 		in.close();
+		out.close();
+		fileSystem.close();
+	}
+	public void addFromFile(String source, String dest, int limt) throws IOException {
+
+		FileSystem fileSystem = FileSystem.get(conf);
+
+		// Get the filename out of the file path
+		String filename = source.substring(source.lastIndexOf('/') + 1, source
+				.length());
+
+		// Create the destination path including the filename.
+		if (dest.charAt(dest.length() - 1) != '/') {
+			dest = dest + "/" + filename;
+		} else {
+			dest = dest + filename;
+		}
+
+		// Check if the file already exists
+		Path path = new Path(dest);
+		if (fileSystem.exists(path)) {
+			System.out.println("File " + dest + " already exists");
+			return;
+		}
+
+		// Create a new file and write data to it.
+		FSDataOutputStream out = fileSystem.create(path);
+		BufferedReader br = new BufferedReader(new FileReader(new File(source)));
+
+		String str = null;
+		int i=0;
+		while ((str = br.readLine()) != null && i<limt) {
+			HInfoWritable w = new HInfoWritable();
+			StringTokenizer itr = new StringTokenizer(str,"||");
+			
+			if (itr.hasMoreTokens()) {
+				//read a single line stroed in hdfs
+				w.setObjId(Long.valueOf(itr.nextToken()));
+				w.setOid(itr.nextToken());
+				w.setValue(Double.valueOf(itr.nextToken()));
+				w.setTime(Long.valueOf(itr.nextToken()));
+			}
+			w.write(out);
+			out.write(new byte[]{'$','$','$'});
+			i++;
+		}
+
+		// Close all the file descripters
 		out.close();
 		fileSystem.close();
 	}
@@ -285,14 +336,14 @@ public class HDFSClient {
 		  }
 
 	protected static void init() throws IOException, ClassNotFoundException {
-		String []args = {"D:/text.txt","append/1"};
+		String []args = {"D:/haddop-testdata/3.txt","custom/file01"};
 		//String []args = {"hiarchive/output/103"};
 		HDFSClient client = new HDFSClient();
 			
 			//client.append(new Path("append/1/text.txt"), "sample appended");
 			//client.addFile(args[0], args[1]);
 			//client.readFile(args[0]);
-			client.listContent("temp");
+			client.listContent("out1/hi");
 			//client.read("seq/historical/113");
 			//client.write(new HInfoWritable("113","redhat:1.6",1384433196012l,5), "seq/historical/113");
 			//System.out.println(client.ifExists(new Path(args[0])));
@@ -304,6 +355,7 @@ public class HDFSClient {
 		//client.delete("infodata");
 		//client.writeString("sdfkdshf", "sample/input");
 		//client.readString("sample/input");
+		//client.addFromFile(args[0], args[1],100);
 
 
 		System.out.println("Done!");

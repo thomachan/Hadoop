@@ -3,6 +3,7 @@ package mapreduce.hi.api;
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 
+import mapreduce.hi.api.input.CustomInputFormat;
 import mapreduce.hi.api.interval.ValueConfigurator;
 import mapreduce.hi.api.object.ObjectLevelConfigurator;
 
@@ -36,20 +37,21 @@ public class ChainConfigurator {
 						conf.set("fs.default.name", "hdfs://192.168.1.149:9000");
 				
 						conf.set("hadoop.job.ugi", "root");
+						conf.set("inputformat.record.delimiter", "$$$");
 				
-						if (otherArgs.length != 4) {
+						if (otherArgs.length != 2) {
 							System.err
-									.println("Usage: Comment <in1 path> <temp file for merging in> <out1 path> <out2 path>");
+									.println("Usage: Comment <in1 path> <out1 path>");
 							System.exit(2);
 						}
 						// delete temporary location if already exists
-						delete(otherArgs[1], conf);
+						//delete(otherArgs[1], conf);
 						// delete output if exists
-						delete(otherArgs[2], conf);
+						delete(otherArgs[1], conf);
 						// delete output2 if exists
-						delete(otherArgs[3], conf);
+						//delete(otherArgs[2], conf);
 				
-						copyMerge(otherArgs[0], otherArgs[1], conf);
+						//copyMerge(otherArgs[0], otherArgs[1], conf);
 				
 						//firstJob(otherArgs);
 						
@@ -81,9 +83,9 @@ public class ChainConfigurator {
 		Job valueJob = valueConfigurator.getJob(conf);
 
 		// CombineInputFormat.addInputPath(job, new Path(otherArgs[0]));
-		FileInputFormat.addInputPath(valueJob, new Path(otherArgs[1]));
+		CustomInputFormat.setInputPaths(valueJob, otherArgs[0]);
 		LazyOutputFormat.setOutputFormatClass(valueJob, TextOutputFormat.class);
-		TextOutputFormat.setOutputPath(valueJob, new Path(otherArgs[2]));
+		TextOutputFormat.setOutputPath(valueJob, new Path(otherArgs[1]));
 		//FileOutputFormat.setOutputPath(valueJob, new Path(otherArgs[3]));
 		return valueJob.waitForCompletion(true);
 	}

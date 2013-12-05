@@ -1,21 +1,31 @@
 package com.radiant.cisms.hdfs.seq;
 
-import org.apache.commons.lang.builder.*;
-import org.apache.hadoop.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutput;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
-import java.io.*;
+import org.apache.commons.lang.builder.CompareToBuilder;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableUtils;
 
 public class HInfoWritable implements WritableComparable<HInfoWritable>,
 		Cloneable {
 	String oid;
-	String objId;
+	long objId;
 	long time;
 	double value;
-
+	ByteBuffer buff;
+	 private static final Log LOG = LogFactory.getLog(" org.apache.hadoop.io");
 	public HInfoWritable() {
+		buff = ByteBuffer.allocate(1024 * 64);
 	}
 
-	public HInfoWritable(String oid, String objId, long time, double value) {
+	public HInfoWritable(String oid, long objId, long time, double value) {
 		this.oid = oid;
 		this.objId = objId;
 		this.time = time;
@@ -23,10 +33,14 @@ public class HInfoWritable implements WritableComparable<HInfoWritable>,
 
 	}
 
+	public HInfoWritable(int defaultBufferSize) {
+		buff = ByteBuffer.allocate(defaultBufferSize);
+	}
+
 	@Override
 	public void write(DataOutput out) throws IOException {
 		WritableUtils.writeString(out, oid);
-		WritableUtils.writeString(out, objId);
+		out.writeLong(objId);
 		out.writeLong(time);
 		out.writeDouble(value);
 	}
@@ -34,7 +48,7 @@ public class HInfoWritable implements WritableComparable<HInfoWritable>,
 	@Override
 	public void readFields(DataInput in) throws IOException {
 		oid = WritableUtils.readString(in);
-		objId = WritableUtils.readString(in);
+		objId = in.readLong();
 		time = in.readLong();
 		value = in.readDouble();
 	}
@@ -52,12 +66,20 @@ public class HInfoWritable implements WritableComparable<HInfoWritable>,
 		this.oid = oid;
 	}
 
-	public String getObjId() {
+	public long getObjId() {
 		return objId;
 	}
 
-	public void setObjId(String objId) {
+	public void setObjId(long objId) {
 		this.objId = objId;
+	}
+
+	public ByteBuffer getBuff() {
+		return buff;
+	}
+
+	public void setBuff(ByteBuffer buff) {
+		this.buff = buff;
 	}
 
 	public long getTime() {
@@ -75,8 +97,34 @@ public class HInfoWritable implements WritableComparable<HInfoWritable>,
 	public void setValue(double value) {
 		this.value = value;
 	}
+	public void put(byte buffer[], int startPosn, int appendLength){
+		System.out.println(new String(buffer));
+		buff.put(buffer, startPosn, appendLength);
+	}
+	public void read(int start,int end) throws IOException{
+		DataInputStream in = new DataInputStream(new ByteArrayInputStream(this.buff.array(),start,end));
+		readFields(in);
+		in.close();
+	}
+
+	public void read() throws IOException {
+		DataInputStream in = new DataInputStream(new ByteArrayInputStream(this.buff.array(),0,this.buff.position()));
+		readFields(in);
+		in.close();
+	}
 	@Override
 	public String toString() {
-		return objId="_"+ oid +"_"+time;
+		return objId+"_"+ oid +"_"+time;
 	}
+
+	public void clear() {
+		if(this.buff != null){
+			this.buff.clear();
+		}
+		
+	}
+	/*public static void main(String []a){
+		ByteBuffer buff = null;
+		buff.put(new byte[]{},0,10);
+	}*/
 }
